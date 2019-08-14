@@ -132,13 +132,13 @@ module.exports = async function (
       if (!types.length) return
       const dependencyType = types[0]
 
-      const oldPkgVersion = _.get(json, [dependencyType, depName])
-      if (!oldPkgVersion) {
+      const oldSemverRange = _.get(json, [dependencyType, depName])
+      if (!oldSemverRange) {
         log.warn(`exited transform creation: could not find old package version for ${depName}`, { newVersion: version, dependencyType, packageFile: _.get(json, [dependencyType]) })
         return null
       }
-      if (!semver.validRange(oldPkgVersion)) {
-        log.warn(`exited transform creation: ${depName} oldPkgVersion: ${oldPkgVersion} is not a valid version`, { newVersion: version, oldVersion: oldPkgVersion })
+      if (!semver.validRange(oldSemverRange)) {
+        log.warn(`exited transform creation: ${depName} oldSemverRange: ${oldSemverRange} is not a valid range`, { newVersion: version, oldVersion: oldSemverRange })
         return null
       }
 
@@ -146,16 +146,16 @@ module.exports = async function (
       const npmDoc = await npm.get(isFromHook ? `${installationId}:${depName}` : depName)
       const latestDependencyVersion = npmDoc['distTags']['latest']
       if (!semver.validRange(latestDependencyVersion)) {
-        log.warn(`exited transform creation: ${depName} latestDependencyVersion: ${latestDependencyVersion} is not a valid version`, { newVersion: latestDependencyVersion, oldVersion: oldPkgVersion })
+        log.warn(`exited transform creation: ${depName} latestDependencyVersion: ${latestDependencyVersion} is not a valid version`, { newVersion: latestDependencyVersion, oldVersion: oldSemverRange })
         return null
       }
       const repoURL = _.get(npmDoc, `versions['${latestDependencyVersion}'].repository.url`)
 
-      if (semver.ltr(latestDependencyVersion, oldPkgVersion)) { // no downgrades
-        log.warn(`exited transform creation: ${depName} ${latestDependencyVersion} would be a downgrade from ${oldPkgVersion}`, { newVersion: latestDependencyVersion, oldVersion: oldPkgVersion })
+      if (semver.ltr(latestDependencyVersion, oldSemverRange)) { // no downgrades
+        log.warn(`exited transform creation: ${depName} ${latestDependencyVersion} would be a downgrade from ${oldSemverRange}`, { newVersion: latestDependencyVersion, oldVersion: oldSemverRange })
         return null
       }
-      const satisfies = semver.satisfies(latestDependencyVersion, oldPkgVersion)
+      const satisfies = semver.satisfies(latestDependencyVersion, oldSemverRange)
       if (!satisfies) satisfiesAll = false
       const commitMessageKey = !satisfies && dependencyType === 'dependencies'
         ? 'dependencyUpdate'
@@ -176,16 +176,16 @@ module.exports = async function (
       log.info(`commit message for ${depName} created`, { commitMessage })
 
       const satisfyingVersions = getSatisfyingVersions(npmDoc.versions, {
-        value: { oldVersion: oldPkgVersion }
+        value: { oldVersion: oldSemverRange }
       })
       const oldVersionResolved = getOldVersionResolved(satisfyingVersions, npmDoc.distTags, 'latest')
       if (!oldVersionResolved) {
-        log.info(`exited transform creation: ${depName} ${latestDependencyVersion} is not an update for ${oldPkgVersion}`, { newVersion: version, json, satisfyingVersions, latestDependencyVersion, oldPkgVersion })
+        log.info(`exited transform creation: ${depName} ${latestDependencyVersion} is not an update for ${oldSemverRange}`, { newVersion: version, json, satisfyingVersions, latestDependencyVersion, oldSemverRange })
         return null
       }
 
       if (semver.prerelease(latestDependencyVersion) && !semver.prerelease(oldVersionResolved)) {
-        log.info(`exited transform creation: ${depName} ${latestDependencyVersion} is a prerelease on latest and user does not use prereleases for this dependency`, { latestDependencyVersion, oldPkgVersion })
+        log.info(`exited transform creation: ${depName} ${latestDependencyVersion} is a prerelease on latest and user does not use prereleases for this dependency`, { latestDependencyVersion, oldSemverRange })
         return null
       }
 
